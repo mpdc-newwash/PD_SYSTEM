@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Program Submission Dashboard</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    input, select { margin-right: 10px; padding: 6px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; vertical-align: top; }
+    th { background-color: #f4f4f4; }
+	button {
+      background-color: #FF0000;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0000FF;
+    }
+  </style>
+</head>
+<body>
+  <h1>Submitted Program Designs</h1>
+
+  <div>
+    <input type="text" id="searchInput" placeholder="🔍 Search title, fund, or description">
+    <select id="statusFilter">
+      <option value="">All Statuses</option>
+      <option value="pending">Pending</option>
+      <option value="approved">Approved</option>
+      <option value="done">Done</option>
+    </select>
+	
+	 <button onclick="window.open('https://docs.google.com/forms/d/e/1FAIpQLSeFDR2d03CVn4euB6iHmSXX6zo19Vn5QxfIrpsDaYLQOUPSCQ/viewform', '_blank')">
+      ➕ Submit New Program
+    </button>
+	
+  </div>
+
+  <table id="recordsTable">
+    <thead>
+      <tr>
+        <th>Date Submitted</th>
+        <th>Program Title</th>
+        <th>Description</th>
+        <th>Source of Fund</th>
+        <th>Total Budget</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const API_URL = 'https://script.google.com/macros/s/AKfycbzPYrZPxHPOYGd91KmUf-koCmMh6ybIl0vYdmrqeBF3QcypNq2xrwCgXezgyDYQWmRU/exec?type==public';
+
+    // Define keys matching your current JSON structure
+    const KEYS = {
+      timestamp: "Timestamp",
+      title: "1. Program Design Title \nEnter a clear and concise title for your program.\nExample: Barangay Skills Training for Out-of-School Youth",
+      description: "2. Program Description\nDescribe the purpose, goals, and target beneficiaries of the program. Include where and when it will be implemented.\nExample:\n\"This program aims to provide livelihood skills training to 50 out-of-school youth from Barangay A through TESDA-accredited courses. It will run from August to October 2025 and will be held at the Municipal Training Center.\"  \n",
+      fund: " 5. Budget/Source of Fund  \nIndicate where the funding will come from. You may choose more than one source.\nExamples:\nLGU General Fund\n20% Development Fund\nExternal Partner (e.g., DSWD, DOLE, Private Sponsor)\nSK Fund\nIf applicable, write:\n\"80% from LGU Fund, 20% from DOLE Livelihood Grant\"\n",
+      budget: "3. Total Budget Needed\nindicate the total budget needed in Text and Numbers.\n\nExample:\nThirty Thousand Pesos (Php 37,000.00) \n",
+      status: "status"
+    };
+
+    let allData = [];
+
+    fetch(API_URL)
+      .then(res => res.json())
+      .then(data => {
+        allData = data;
+        renderTable(data);
+      })
+      .catch(err => {
+        console.error("Failed to fetch data:", err);
+        alert("Unable to load records.");
+      });
+	  
+	 
+	function formatDate(raw) {
+	  if (!raw) return "-";
+	  const date = new Date(raw);
+	  return date.toLocaleDateString("en-PH", {
+		year: "numeric",
+		month: "long",
+		day: "numeric"
+	  });
+	}
+
+
+    function renderTable(data) {
+      const tbody = document.querySelector("#recordsTable tbody");
+      tbody.innerHTML = "";
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6">No matching records found</td></tr>';
+        return;
+      }
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${formatDate(row[KEYS.timestamp])}</td>
+          <td>${row[KEYS.title] || "-"}</td>
+          <td>${row[KEYS.description] || "-"}</td>
+          <td>${row[KEYS.fund] || "-"}</td>
+          <td>${row[KEYS.budget] || "-"}</td>
+          <td>${(row[KEYS.status] || "-").toUpperCase()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById("searchInput").addEventListener("input", filterData);
+    document.getElementById("statusFilter").addEventListener("change", filterData);
+
+    function filterData() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const status = document.getElementById("statusFilter").value.toLowerCase();
+
+      const filtered = allData.filter(row => {
+        const title = (row[KEYS.title] || "").toLowerCase();
+        const desc = (row[KEYS.description] || "").toLowerCase();
+        const fund = (row[KEYS.fund] || "").toLowerCase();
+        const rowStatus = (row[KEYS.status] || "").toLowerCase();
+
+        const matchQuery = title.includes(query) || desc.includes(query) || fund.includes(query);
+        const matchStatus = !status || rowStatus === status;
+
+        return matchQuery && matchStatus;
+      });
+
+      renderTable(filtered);
+    }
+  </script>
+</body>
+</html>
