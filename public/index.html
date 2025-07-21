@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Program Statement Dashboard</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+
+    .header {
+      background-color: #1e3a8a;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px;
+    }
+
+    .header-title {
+      flex: 1;
+      text-align: center;
+      font-size: 22px;
+      font-weight: bold;
+    }
+
+    .header img {
+      height: 60px;
+    }
+
+    .container {
+      display: flex;
+      height: 100vh;
+    }
+
+    .sidebar {
+      background-color: #333;
+      color: white;
+      padding: 20px;
+      width: 220px;
+    }
+
+    .sidebar h3 {
+      margin-top: 0;
+    }
+
+    .sidebar button {
+      margin-top: 20px;
+      padding: 12px;
+      width: 100%;
+      font-weight: bold;
+      font-size: 16px;
+      background-color: #e5e7eb;
+      color: black;
+      border: none;
+      cursor: pointer;
+    }
+
+    .main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+    }
+
+    .stats {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .stat-box {
+      flex: 1;
+      padding: 15px;
+      border-radius: 5px;
+      color: white;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    .blue { background-color: #2563eb; }
+    .lightblue { background-color: #3b82f6; }
+    .yellow { background-color: #facc15; color: black; }
+    .red { background-color: #ef4444; }
+
+    .filter-bar {
+      margin-bottom: 15px;
+    }
+
+    .filter-bar input, .filter-bar select {
+      padding: 10px;
+      font-size: 14px;
+      margin-right: 10px;
+      width: 250px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+    }
+
+    th, td {
+      padding: 10px;
+      border: 1px solid #ccc;
+      vertical-align: top;
+    }
+
+    th {
+      background-color: #f1f5f9;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img src="logo-left.png" alt="Logo Left">
+    <div class="header-title">
+      LGU- NEW WASHINGTON <br> MPDC PROGRAM STATEMENT TRACKER
+    </div>
+    <img src="logo-right.png" alt="Logo Right">
+  </div>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <h3>DASH BOARD</h3>
+      <button onclick="window.open('https://docs.google.com/forms/d/e/1FAIpQLSeFDR2d03CVn4euB6iHmSXX6zo19Vn5QxfIrpsDaYLQOUPSCQ/viewform', '_blank')">
+        SUBMIT A NEW REQUEST
+      </button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main">
+      <div class="stats">
+        <div class="stat-box blue">NEW REQUEST <br>PENDING<br><span id="count-pending" style="font-size: 28px;">0</span></div>
+        <div class="stat-box lightblue">FOR CLIENT<br>APPROVAL<br><span id="count-client" style="font-size: 28px;">0</span></div>
+        <div class="stat-box yellow">APPROVED<br><span id="count-approved" style="font-size: 28px;">0</span></div>
+        <div class="stat-box red">CANCELLED/DENIED<br><span id="count-cancelled" style="font-size: 28px;">0</span></div>
+      </div>
+
+      <div class="filter-bar">
+        <input type="text" id="searchInput" placeholder="🔍 Search title, fund, or description">
+        <select id="statusFilter">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="for client approval">For Client Approval</option>
+          <option value="approved">Approved</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="denied">Denied</option>
+        </select>
+      </div>
+
+      <table id="recordsTable">
+        <thead>
+          <tr>
+            <th>Date Submitted</th>
+            <th>Program Title</th>
+            <th>Description</th>
+            <th>Source of Fund</th>
+            <th>Total Budget</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'get-data.php';
+
+    const KEYS = {
+      timestamp: "Timestamp",
+      title: "1. Program Design Title \nEnter a clear and concise title for your program.\nExample: Barangay Skills Training for Out-of-School Youth",
+      description: "2. Program Description\nDescribe the purpose, goals, and target beneficiaries of the program. Include where and when it will be implemented.\nExample:\n\"This program aims to provide livelihood skills training...\"",
+      fund: " 5. Budget/Source of Fund  \nIndicate where the funding will come from...",
+      budget: "3. Total Budget Needed\nindicate the total budget needed...",
+      status: "status"
+    };
+
+    let allData = [];
+
+    fetch(API_URL)
+      .then(res => res.json())
+      .then(data => {
+        allData = data;
+        renderTable(data);
+        updateCounts(data);
+      })
+      .catch(err => {
+        console.error("Failed to fetch data:", err);
+        alert("Unable to load records.");
+      });
+
+    function formatDate(raw) {
+      if (!raw) return "-";
+      const date = new Date(raw);
+      return date.toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric"
+      });
+    }
+
+    function renderTable(data) {
+      const tbody = document.querySelector("#recordsTable tbody");
+      tbody.innerHTML = "";
+
+      if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6">No matching records found</td></tr>';
+        return;
+      }
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${formatDate(row[KEYS.timestamp])}</td>
+          <td>${row[KEYS.title] || "-"}</td>
+          <td>${row[KEYS.description] || "-"}</td>
+          <td>${row[KEYS.fund] || "-"}</td>
+          <td>${row[KEYS.budget] || "-"}</td>
+          <td>${(row[KEYS.status] || "-").toUpperCase()}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function updateCounts(data) {
+      let counts = {
+        pending: 0,
+        client: 0,
+        approved: 0,
+        cancelled: 0
+      };
+
+      data.forEach(row => {
+        const status = (row[KEYS.status] || "").toLowerCase();
+        if (status === "pending") counts.pending++;
+        else if (status.includes("client")) counts.client++;
+        else if (status === "approved" || status === "done") counts.approved++;
+        else if (status === "cancelled" || status === "denied") counts.cancelled++;
+      });
+
+      document.getElementById("count-pending").textContent = counts.pending;
+      document.getElementById("count-client").textContent = counts.client;
+      document.getElementById("count-approved").textContent = counts.approved;
+      document.getElementById("count-cancelled").textContent = counts.cancelled;
+    }
+
+    document.getElementById("searchInput").addEventListener("input", filterData);
+    document.getElementById("statusFilter").addEventListener("change", filterData);
+
+    function filterData() {
+      const query = document.getElementById("searchInput").value.toLowerCase();
+      const status = document.getElementById("statusFilter").value.toLowerCase();
+
+      const filtered = allData.filter(row => {
+        const title = (row[KEYS.title] || "").toLowerCase();
+        const desc = (row[KEYS.description] || "").toLowerCase();
+        const fund = (row[KEYS.fund] || "").toLowerCase();
+        const rowStatus = (row[KEYS.status] || "").toLowerCase();
+
+        const matchQuery = title.includes(query) || desc.includes(query) || fund.includes(query);
+        const matchStatus = !status || rowStatus.includes(status);
+
+        return matchQuery && matchStatus;
+      });
+
+      renderTable(filtered);
+      updateCounts(filtered);
+    }
+  </script>
+</body>
+</html>
